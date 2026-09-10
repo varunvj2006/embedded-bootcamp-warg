@@ -17,6 +17,7 @@
   ******************************************************************************
   */
 /* USER CODE END Header */
+
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
 #include "spi.h"
@@ -26,6 +27,8 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+
+#include <stdio.h>
 
 /* USER CODE END Includes */
 
@@ -40,6 +43,7 @@
 #define ADC_MAX_VALUE 1023U
 #define PWM_MIN_COUNT 3200U
 #define PWM_COUNT_RANGE 3200U
+#define SPI_TRANSFER_LENGTH 3U
 
 /* USER CODE END PD */
 
@@ -52,8 +56,8 @@
 
 /* USER CODE BEGIN PV */
 
-uint8_t tx_data[3] = {0};
-uint8_t rx_data[3] = {0};
+uint8_t tx_data[SPI_TRANSFER_LENGTH] = {0};
+uint8_t rx_data[SPI_TRANSFER_LENGTH] = {0};
 
 uint16_t adc_value = 0;
 uint32_t pwm_compare = 0;
@@ -62,12 +66,19 @@ uint32_t pwm_compare = 0;
 
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
+
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+
+int __io_putchar(int ch)
+{
+  HAL_UART_Transmit(&huart2, (uint8_t *)&ch, 1, HAL_MAX_DELAY);
+  return ch;
+}
 
 /* USER CODE END 0 */
 
@@ -77,7 +88,6 @@ void SystemClock_Config(void);
   */
 int main(void)
 {
-
   /* USER CODE BEGIN 1 */
 
   /* USER CODE END 1 */
@@ -104,7 +114,6 @@ int main(void)
   MX_SPI1_Init();
   MX_TIM1_Init();
 
-
   /* USER CODE BEGIN 2 */
 
   HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_1);
@@ -119,50 +128,58 @@ int main(void)
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
-  while (1) {
-      /* USER CODE END WHILE */
+  while (1)
+  {
+    /* USER CODE END WHILE */
 
-      /* USER CODE BEGIN 3 */
+    /* USER CODE BEGIN 3 */
 
-      tx_data[0] = 0x01;
-      tx_data[1] = 0x80;
-      tx_data[2] = 0x00;
+    tx_data[0] = 0x01;
+    tx_data[1] = 0x80;
+    tx_data[2] = 0x00;
 
-      HAL_GPIO_WritePin(
-          ADC_CS_GPIO_Port,
-          ADC_CS_Pin,
-          GPIO_PIN_RESET
-      );
+    HAL_GPIO_WritePin(
+        ADC_CS_GPIO_Port,
+        ADC_CS_Pin,
+        GPIO_PIN_RESET
+    );
 
-      HAL_SPI_TransmitReceive(
-          &hspi1,
-          tx_data,
-          rx_data,
-          3,
-          HAL_MAX_DELAY
-      );
+    HAL_SPI_TransmitReceive(
+        &hspi1,
+        tx_data,
+        rx_data,
+        SPI_TRANSFER_LENGTH,
+        HAL_MAX_DELAY
+    );
 
-      HAL_GPIO_WritePin(
-          ADC_CS_GPIO_Port,
-          ADC_CS_Pin,
-          GPIO_PIN_SET
-      );
+    HAL_GPIO_WritePin(
+        ADC_CS_GPIO_Port,
+        ADC_CS_Pin,
+        GPIO_PIN_SET
+    );
 
-      // Extract B9-B8 and combine them with B7-B0.
-      adc_value = ((rx_data[1] & 0x03) << 8) | rx_data[2];
+    printf(
+        "SPI RX: %d %d %d\r\n",
+        rx_data[0],
+        rx_data[1],
+        rx_data[2]
+    );
 
-      // Convert the ADC value to the servo PWM range.
-      pwm_compare =
-          PWM_MIN_COUNT
-          + ((uint32_t)adc_value * PWM_COUNT_RANGE) / ADC_MAX_VALUE;
+    // Extract B9-B8 and combine them with B7-B0.
+    adc_value = ((rx_data[1] & 0x03) << 8) | rx_data[2];
 
-      __HAL_TIM_SET_COMPARE(
-          &htim1,
-          TIM_CHANNEL_1,
-          pwm_compare
-      );
+    // Convert the ADC value to the servo PWM range.
+    pwm_compare =
+        PWM_MIN_COUNT
+        + ((uint32_t)adc_value * PWM_COUNT_RANGE) / ADC_MAX_VALUE;
 
-      HAL_Delay(10);
+    __HAL_TIM_SET_COMPARE(
+        &htim1,
+        TIM_CHANNEL_1,
+        pwm_compare
+    );
+
+    HAL_Delay(10);
   }
   /* USER CODE END 3 */
 }
@@ -183,6 +200,7 @@ void SystemClock_Config(void)
   RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSI48;
   RCC_OscInitStruct.HSI48State = RCC_HSI48_ON;
   RCC_OscInitStruct.PLL.PLLState = RCC_PLL_NONE;
+
   if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
   {
     Error_Handler();
@@ -200,8 +218,10 @@ void SystemClock_Config(void)
   {
     Error_Handler();
   }
+
   PeriphClkInit.PeriphClockSelection = RCC_PERIPHCLK_USART2;
   PeriphClkInit.Usart2ClockSelection = RCC_USART2CLKSOURCE_PCLK1;
+
   if (HAL_RCCEx_PeriphCLKConfig(&PeriphClkInit) != HAL_OK)
   {
     Error_Handler();
@@ -221,12 +241,16 @@ void Error_Handler(void)
   /* USER CODE BEGIN Error_Handler_Debug */
   /* User can add his own implementation to report the HAL error return state */
   __disable_irq();
+
   while (1)
   {
   }
+
   /* USER CODE END Error_Handler_Debug */
 }
+
 #ifdef USE_FULL_ASSERT
+
 /**
   * @brief  Reports the name of the source file and the source line number
   *         where the assert_param error has occurred.
@@ -241,4 +265,7 @@ void assert_failed(uint8_t *file, uint32_t line)
      ex: printf("Wrong parameters value: file %s on line %d\r\n", file, line) */
   /* USER CODE END 6 */
 }
+
 #endif /* USE_FULL_ASSERT */
+
+/************************ (C) COPYRIGHT STMicroelectronics *****END OF FILE****/
