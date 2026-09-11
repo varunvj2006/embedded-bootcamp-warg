@@ -61,6 +61,7 @@ uint8_t rx_data[SPI_TRANSFER_LENGTH] = {0};
 
 uint16_t adc_value = 0;
 uint32_t pwm_compare = 0;
+HAL_StatusTypeDef spi_status;
 
 /* USER CODE END PV */
 
@@ -124,6 +125,10 @@ int main(void)
       GPIO_PIN_SET
   );
 
+  tx_data[0] = 0x01;
+  tx_data[1] = 0x80;
+  tx_data[2] = 0x00;
+
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -134,17 +139,13 @@ int main(void)
 
     /* USER CODE BEGIN 3 */
 
-    tx_data[0] = 0x01;
-    tx_data[1] = 0x80;
-    tx_data[2] = 0x00;
-
     HAL_GPIO_WritePin(
         ADC_CS_GPIO_Port,
         ADC_CS_Pin,
         GPIO_PIN_RESET
     );
 
-    HAL_SPI_TransmitReceive(
+    spi_status = HAL_SPI_TransmitReceive(
         &hspi1,
         tx_data,
         rx_data,
@@ -157,6 +158,8 @@ int main(void)
         ADC_CS_Pin,
         GPIO_PIN_SET
     );
+
+    printf("SPI status: %d\r\n", (int)spi_status);
 
     printf(
         "SPI RX: %d %d %d\r\n",
@@ -181,6 +184,7 @@ int main(void)
 
     HAL_Delay(10);
   }
+
   /* USER CODE END 3 */
 }
 
@@ -267,5 +271,3 @@ void assert_failed(uint8_t *file, uint32_t line)
 }
 
 #endif /* USE_FULL_ASSERT */
-
-/************************ (C) COPYRIGHT STMicroelectronics *****END OF FILE****/
